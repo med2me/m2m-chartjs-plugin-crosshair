@@ -162,97 +162,11 @@ export default {
       },
       stop: true
     };
-    chart._eventHandler(newEvent);
+    this.afterEventHandler(chart, newEvent);
   },
 
   afterEvent: function(chart, event) {
-
-    if (chart.config.options.scales.x.length == 0) {
-      return
-    }
-
-    let e = event.event
-
-    var xScaleType = chart.config.options.scales.x.type
-
-    if (xScaleType !== 'linear' && xScaleType !== 'time' && xScaleType !== 'category' && xscaleType !== 'logarithmic') {
-      return;
-    }
-
-    var xScale = this.getXScale(chart);
-
-    if (!xScale) {
-      return;
-    }
-
-    if(chart.crosshair.ignoreNextEvents > 0) {
-      chart.crosshair.ignoreNextEvents -= 1
-      return;
-    }
-
-    // fix for Safari
-    var buttons = (e.native.buttons === undefined ? e.native.which : e.native.buttons);
-    if (e.native.type === 'mouseup') {
-      buttons = 0;
-    }
-
-    var syncEnabled = this.getOption(chart, 'sync', 'enabled');
-    var syncGroup = this.getOption(chart, 'sync', 'group');
-
-    // fire event for all other linked charts
-    if (!e.stop && syncEnabled) {
-      var event = new CustomEvent('sync-event');
-      event.chartId = chart.id;
-      event.syncGroup = syncGroup;
-      event.original = e;
-      event.xValue = xScale.getValueForPixel(e.x);
-      window.dispatchEvent(event);
-    }
-
-    // suppress tooltips for linked charts
-    var suppressTooltips = this.getOption(chart, 'sync', 'suppressTooltips');
-
-    chart.crosshair.suppressTooltips = e.stop && suppressTooltips;
-
-    chart.crosshair.enabled = (e.type !== 'mouseout' && (e.x > xScale.getPixelForValue(xScale.min) && e.x < xScale.getPixelForValue(xScale.max)));
-
-    if (!chart.crosshair.enabled && !chart.crosshair.suppressUpdate) {
-      if (e.x > xScale.getPixelForValue(xScale.max)) {
-        // suppress future updates to prevent endless redrawing of chart
-        chart.crosshair.suppressUpdate = true
-        chart.update('none');
-      }
-      chart.crosshair.dragStarted = false // cancel zoom in progress
-      return false;
-    }
-    chart.crosshair.suppressUpdate = false
-
-    // handle drag to zoom
-    var zoomEnabled = this.getOption(chart, 'zoom', 'enabled');
-
-    if (buttons === 1 && !chart.crosshair.dragStarted && zoomEnabled) {
-      chart.crosshair.dragStartX = e.x;
-      chart.crosshair.dragStarted = true;
-    }
-
-    // handle drag to zoom
-    if (chart.crosshair.dragStarted && buttons === 0) {
-      chart.crosshair.dragStarted = false;
-
-      var start = xScale.getValueForPixel(chart.crosshair.dragStartX);
-      var end = xScale.getValueForPixel(chart.crosshair.x);
-
-      if (Math.abs(chart.crosshair.dragStartX - chart.crosshair.x) > 1) {
-        this.doZoom(chart, start, end);
-      }
-      chart.update('none');
-    }
-
-    chart.crosshair.x = e.x;
-
-
-    chart.draw();
-
+    this.afterEventHandler(chart, event.event);
   },
 
   afterDraw: function(chart) {
@@ -542,6 +456,89 @@ export default {
       }
     }
 
+  },
+
+  afterEventHandler: function (chart, evt) {
+    if (chart.config.options.scales.x.length == 0) {
+      return
+    }
+    var xScaleType = chart.config.options.scales.x.type;
+
+    if (xScaleType !== 'linear' && xScaleType !== 'time' && xScaleType !== 'category' && xscaleType !== 'logarithmic') {
+      return;
+    }
+
+    var xScale = this.getXScale(chart);
+
+    if (!xScale) {
+      return;
+    }
+
+    if(chart.crosshair.ignoreNextEvents > 0) {
+      chart.crosshair.ignoreNextEvents -= 1;
+      return;
+    }
+
+    // fix for Safari
+    var buttons = (evt.native.buttons === undefined ? evt.native.which : evt.native.buttons);
+    if (evt.native.type === 'mouseup') {
+      buttons = 0;
+    }
+
+    var syncEnabled = this.getOption(chart, 'sync', 'enabled');
+    var syncGroup = this.getOption(chart, 'sync', 'group');
+
+    // fire event for all other linked charts
+    if (!evt.stop && syncEnabled) {
+      var event = new CustomEvent('sync-event');
+      event.chartId = chart.id;
+      event.syncGroup = syncGroup;
+      event.original = evt;
+      event.xValue = xScale.getValueForPixel(evt.x);
+      window.dispatchEvent(event);
+    }
+
+    // suppress tooltips for linked charts
+    var suppressTooltips = this.getOption(chart, 'sync', 'suppressTooltips');
+
+    chart.crosshair.suppressTooltips = evt.stop && suppressTooltips;
+
+    chart.crosshair.enabled = (evt.type !== 'mouseout' && (evt.x > xScale.getPixelForValue(xScale.min) && evt.x < xScale.getPixelForValue(xScale.max)));
+
+    if (!chart.crosshair.enabled && !chart.crosshair.suppressUpdate) {
+      if (evt.x > xScale.getPixelForValue(xScale.max)) {
+        // suppress future updates to prevent endless redrawing of chart
+        chart.crosshair.suppressUpdate = true;
+        chart.update('none');
+      }
+      chart.crosshair.dragStarted = false; // cancel zoom in progress
+      return false;
+    }
+    chart.crosshair.suppressUpdate = false;
+
+    // handle drag to zoom
+    var zoomEnabled = this.getOption(chart, 'zoom', 'enabled');
+
+    if (buttons === 1 && !chart.crosshair.dragStarted && zoomEnabled) {
+      chart.crosshair.dragStartX = e.x;
+      chart.crosshair.dragStarted = true;
+    }
+
+    // handle drag to zoom
+    if (chart.crosshair.dragStarted && buttons === 0) {
+      chart.crosshair.dragStarted = false;
+
+      var start = xScale.getValueForPixel(chart.crosshair.dragStartX);
+      var end = xScale.getValueForPixel(chart.crosshair.x);
+
+      if (Math.abs(chart.crosshair.dragStartX - chart.crosshair.x) > 1) {
+        this.doZoom(chart, start, end);
+      }
+      chart.update('none');
+    }
+
+    chart.crosshair.x = evt.x;
+    chart.draw();
   }
 
 };
