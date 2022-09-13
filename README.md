@@ -6,9 +6,10 @@
 </div>
 
 
-[Chart.js](http://www.chartjs.org/) plugin to draw vertical crosshair, zoom, interpolate values and sync chart interactions.
+[Chart.js](http://www.chartjs.org/) plugin to draw vertical crosshair, zoom, interpolate values and sync chart
+interactions.
 
-Requires [Chart.js](https://github.com/chartjs/Chart.js/releases) **3.4.0** or later.
+Requires [Chart.js](https://github.com/chartjs/Chart.js/releases) **3.9.0** or later.
 
 ## Documentation
 
