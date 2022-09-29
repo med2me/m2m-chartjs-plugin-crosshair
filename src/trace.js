@@ -1,10 +1,107 @@
+import {Interaction} from 'chart.js';
 import {valueOrDefault} from 'chart.js/helpers';
+
+function interpolate(chart, e, options) {
+
+  var items = [];
+
+  for (var datasetIndex = 0; datasetIndex < chart.data.datasets.length; datasetIndex++) {
+
+
+    // check for interpolate setting
+    if (!chart.data.datasets[datasetIndex].interpolate) {
+      continue;
+    }
+
+    var meta = chart.getDatasetMeta(datasetIndex);
+    // do not interpolate hidden charts
+    if (meta.hidden) {
+      continue;
+    }
+
+
+    var xScale = chart.scales[meta.xAxisID];
+    var yScale = chart.scales[meta.yAxisID];
+
+    var xValue = xScale.getValueForPixel(e.x);
+
+    if (xValue > xScale.max || xValue < xScale.min) {
+      continue;
+    }
+
+    var data = chart.data.datasets[datasetIndex].data;
+
+    var index = data.findIndex(function(o) {
+      return o.x >= xValue;
+    });
+
+    if (index === -1) {
+      continue;
+    }
+
+
+    // linear interpolate value
+    var prev = data[index - 1];
+    var next = data[index];
+
+    if (prev && next) {
+      var slope = (next.y - prev.y) / (next.x - prev.x);
+      var interpolatedValue = prev.y + (xValue - prev.x) * slope;
+    }
+
+    if (chart.data.datasets[datasetIndex].steppedLine && prev) {
+      interpolatedValue = prev.y;
+    }
+
+    if (isNaN(interpolatedValue)) {
+      continue;
+    }
+
+    var yPosition = yScale.getPixelForValue(interpolatedValue);
+
+    // do not interpolate values outside of the axis limits
+    if (isNaN(yPosition)) {
+      continue;
+    }
+
+    // create a 'fake' event point
+
+    var fakePoint = {
+      hasValue: function() {
+        return true;
+      },
+      tooltipPosition: function() {
+        return this._model
+      },
+      _model: {x: e.x, y: yPosition},
+      skip: false,
+      stop: false,
+      x: xValue,
+      y: interpolatedValue
+    };
+
+    items.push({datasetIndex: datasetIndex, element: fakePoint, index: 0});
+  }
+
+
+  // add other, not interpolated, items
+  var xItems = Interaction.modes.x(chart, e, options);
+  for (index = 0; index < xItems.length; index++) {
+    var item = xItems[index];
+    if (!chart.data.datasets[item.datasetIndex].interpolate) {
+      items.push(item);
+    }
+  }
+
+  return items;
+}
 
 var defaultOptions = {
   line: {
     color: '#F66',
     width: 1,
-    dashPattern: []
+    dashPattern: [],
+    enableCrossX: false
   },
   sync: {
     enabled: true,
@@ -30,17 +127,16 @@ var defaultOptions = {
   }
 };
 
-export default {
+var CrosshairPlugin = {
 
   id: 'crosshair',
 
   afterInit: function(chart) {
-    
     if (!chart.config.options.scales.x) {
       return
     }
 
-    var xScaleType = chart.config.options.scales.x.type
+    var xScaleType = chart.config.options.scales.x.type;
 
     if (xScaleType !== 'linear' && xScaleType !== 'time' && xScaleType !== 'category' && xScaleType !== 'logarithmic') {
       return;
@@ -54,11 +150,13 @@ export default {
       enabled: false,
       suppressUpdate: false,
       x: null,
+      y: null,
       originalData: [],
       originalXRange: {},
       dragStarted: false,
       dragStartX: null,
       dragEndX: null,
+      stop: false,
       suppressTooltips: false,
       ignoreNextEvents: 0,
       reset: function() {
@@ -140,6 +238,7 @@ export default {
     }
 
     var xScale = this.getXScale(chart);
+    var yScale = this.getYScale(chart);
 
     if (!xScale) {
       return;
@@ -151,12 +250,11 @@ export default {
       buttons = 0;
     }
 
-
     var newEvent = {
       type: e.original.type == "click" ? "mousemove" : e.original.type,  // do not transmit click events to prevent unwanted changing of synced charts. We do need to transmit a event to stop zooming on synced charts however.
       chart: chart,
       x: xScale.getPixelForValue(e.xValue),
-      y: e.original.y,
+      y: yScale.getPixelForValue(e.yValue),
       native: {
         buttons: buttons
       },
@@ -257,7 +355,7 @@ export default {
       return false;
     }
 
-    chart.crosshair.dragStarted = false
+    chart.crosshair.dragStarted = false;
 
     if (chart.options.scales.x.min && chart.crosshair.originalData.length === 0) {
       chart.crosshair.originalXRange.min = chart.options.scales.x.min;
@@ -270,8 +368,8 @@ export default {
       // add restore zoom button
       var button = document.createElement('button');
 
-      var buttonText = this.getOption(chart, 'zoom', 'zoomButtonText')
-      var buttonClass = this.getOption(chart, 'zoom', 'zoomButtonClass')
+      var buttonText = this.getOption(chart, 'zoom', 'zoomButtonText');
+      var buttonClass = this.getOption(chart, 'zoom', 'zoomButtonClass');
 
       var buttonLabel = document.createTextNode(buttonText);
       button.appendChild(buttonLabel);
@@ -292,7 +390,7 @@ export default {
     var storeOriginals = (chart.crosshair.originalData.length === 0) ? true : false;
 
 
-    var filterDataset = (chart.config.options.scales.x.type !== 'category')
+    var filterDataset = (chart.config.options.scales.x.type !== 'category');
 
     if(filterDataset) {
 
@@ -314,7 +412,7 @@ export default {
 
           var oldData = sourceDataset[oldDataIndex];
           // var oldDataX = this.getXScale(chart).getRightValue(oldData)
-          var oldDataX = oldData.x !== undefined ? oldData.x : NaN
+          var oldDataX = oldData.x !== undefined ? oldData.x : NaN;
 
           // append one value outside of bounds
           if (oldDataX >= start && !started && index > 0) {
@@ -345,7 +443,7 @@ export default {
       chart.crosshair.max = xAxes.max;
     }
 
-    chart.crosshair.ignoreNextEvents = 2 // ignore next 2 events to prevent starting a new zoom action after updating the chart
+    chart.crosshair.ignoreNextEvents = 2; // ignore next 2 events to prevent starting a new zoom action after updating the chart
 
     chart.update('none');
 
@@ -374,18 +472,21 @@ export default {
   },
 
   drawTraceLine: function(chart) {
-
     var yScale = this.getYScale(chart);
+    var xScale = this.getXScale(chart);
 
     var lineWidth = this.getOption(chart, 'line', 'width');
     var color = this.getOption(chart, 'line', 'color');
     var dashPattern = this.getOption(chart, 'line', 'dashPattern');
     var snapEnabled = this.getOption(chart, 'snap', 'enabled');
+    var enableCrossX = this.getOption(chart, 'line', 'enableCrossX');
 
     var lineX = chart.crosshair.x;
+    var lineY = chart.crosshair.y;
 
     if (snapEnabled && chart._active.length) {
       lineX = chart._active[0].element.x;
+      lineY = chart._active[0].element.y;
     }
 
     chart.ctx.beginPath();
@@ -396,7 +497,19 @@ export default {
     chart.ctx.lineTo(lineX, yScale.getPixelForValue(yScale.min));
     chart.ctx.stroke();
     chart.ctx.setLineDash([]);
+    chart.ctx.closePath();
 
+    if(enableCrossX && !chart.crosshair.stop) {
+      chart.ctx.beginPath();
+      chart.ctx.setLineDash(dashPattern);
+      chart.ctx.moveTo(xScale.getPixelForValue(xScale.max), lineY);
+      chart.ctx.lineWidth = lineWidth;
+      chart.ctx.strokeStyle = color;
+      chart.ctx.lineTo(xScale.getPixelForValue(xScale.min), lineY);
+      chart.ctx.stroke();
+      chart.ctx.setLineDash([]);
+      chart.ctx.closePath();
+    }
   },
 
   drawTracePoints: function(chart) {
@@ -469,6 +582,7 @@ export default {
     }
 
     var xScale = this.getXScale(chart);
+    var yScale = this.getYScale(chart);
 
     if (!xScale) {
       return;
@@ -495,6 +609,7 @@ export default {
       event.syncGroup = syncGroup;
       event.original = evt;
       event.xValue = xScale.getValueForPixel(evt.x);
+      event.yValue = yScale.getValueForPixel(evt.y);
       window.dispatchEvent(event);
     }
 
@@ -538,8 +653,12 @@ export default {
     }
 
     chart.crosshair.x = evt.x;
+    chart.crosshair.y = evt.y;
+    chart.crosshair.stop = evt.stop;
     chart.draw();
   }
 
 };
 
+export default CrosshairPlugin;
+export { CrosshairPlugin, interpolate as Interpolate };
