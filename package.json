@@ -46,6 +46,9 @@
   "peerDependencies": {
     "chart.js": "^3.9.1"
   },
+  "optionalDependencies": {
+    "fsevents": "^1.2.13"
+  },
   "bugs": {
     "url": "https://github.com/med2me/m2m-chartjs-plugin-crosshair/issues"
   },
@@ -368,7 +371,6 @@
     "fresh": "^0.5.2",
     "from2": "^2.3.0",
     "fs-mkdirp-stream": "^1.0.0",
-    "fsevents": "^1.2.13",
     "fs-write-stream-atomic": "^1.0.10",
     "fs.realpath": "^1.0.0",
     "function-bind": "^1.1.1",
