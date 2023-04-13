@@ -269,7 +269,7 @@ var CrosshairPlugin = {
 
   afterDraw: function(chart) {
 
-    if (!chart.crosshair.enabled) {
+    if (!chart?.crosshair?.enabled) {
       return;
     }
 
