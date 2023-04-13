@@ -1,7 +1,7 @@
 {
   "name": "m2m-chartjs-plugin-crosshair",
   "description": "Chart.js plugin to draw and sync vertical crosshair lines",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "license": "MIT",
   "main": "dist/m2m-chartjs-plugin-crosshair.js",
   "module": "dist/m2m-chartjs-plugin-crosshair.esm.js",
